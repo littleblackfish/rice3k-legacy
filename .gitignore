@@ -1,0 +1,7 @@
+*.vcf
+*.map
+*.ped
+*.map.gz
+*.ped.gz
+*~
+*.gff3
