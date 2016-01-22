@@ -5,3 +5,5 @@
 *.ped.gz
 *~
 *.gff3
+*ipynb_checkpoints*
+*all.chrs.con
