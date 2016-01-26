@@ -7,3 +7,6 @@
 *.gff3
 *ipynb_checkpoints*
 *all.chrs.con
+*.swp
+*.swo
+*all.cdna
