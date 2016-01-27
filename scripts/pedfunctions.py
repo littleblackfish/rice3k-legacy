@@ -3,49 +3,6 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord 
 from Bio.Seq import Seq
 
-def heteroProcess( index, ped, genome) :
-    nsample, ncols = ped.shape 
-    amplified = empty([nsample, (ncols-6)/2], dtype=str )
-    supressed = empty([nsample, (ncols-6)/2], dtype=str )
-
-    homocount = zeros(nsample, dtype=int)
-    heterocount = zeros(nsample, dtype=int)
-    identitycount=zeros(nsample, dtype=int)
-
-    for i in range(nsample) :
-        for j in range (6, ncols, 2) :
-            # number of snp after collapsing alelles
-            nsnp=(j-6)/2
-            # location in the genome
-            reference=genome[index[nsnp][0]] [index[nsnp][1]-1 ]
-
-            # homozygous case
-            if ped[i][j] == ped[i][j+1] :
-                amplified[i][nsnp] = ped[i][j]
-                supressed[i][nsnp] = ped[i][j]
-
-                if ped[i][j] == reference:
-                    identitycount[i]+=1
-                homocount[i] +=1;
-            
-            #heterozygous case
-            else : 
-#                print ped[i][0] ,index[numsnp][0], index[numsnp][1], reference, ped[i][j], ped[i][j+1]
-
-                if ped[i][j] == reference :
-                    amplified[i][nsnp] = ped[i][j+1]
-                elif ped[i][j+1] == reference : 
-                    amplified[i][nsnp] = ped[i][j]
-                else :
-                    print 'Hetero but no allele is identical to reference. Wow, thats rare!'
-                    amplified[i][nsnp] = '0'
-
-                supressed[i][nsnp] = reference;
-                    
-                heterocount[i] +=1
-
-    return amplified, supressed,homocount,heterocount,identitycount
-
 # takes a pedline and processes it wrt a reference genome
 # removes the first 6 columns
 # collapses hetero snps and makes 2 versions of half size
@@ -126,6 +83,7 @@ def mutate (genome, index, pedline) :
         newgenome[i] = SeqRecord (newgenome[i].toseq(), id='chr'+str(i), description='')
 
     return newgenome
+
 
 def chrtoint(string) : return int(string[3:])
 

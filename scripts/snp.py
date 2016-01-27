@@ -13,7 +13,7 @@ def ped_find_cultivar( pedfname , cultivar ) :
 
 # parses a MAP file into a dictionary 
 
-def parse_map(mapfile) :
+def MAP_parse(mapfile) :
     mapdict = { i:[] for i in range(1,13)}
     mapraw = loadtxt (mapfile, dtype=int, usecols=(0,3))
 
@@ -50,27 +50,31 @@ def map_find_loci(mapdict, sid, interval) :
 
 # reads a ped file, takes only homozygous snps 
 # returns them in a '1S' numpy array
+# along with a name list
 # as memory efficient as it gets 
 
-def homo_ped(pedfname, nrows=3023) :
+def PED_parse_homo(pedfname, nrows=3023) :
     f = gzip.open(pedfname, 'r') 
     
     ncols = len(f.readline().strip().split(' '))
     nsnps = (ncols-6) / 2
     f.rewind()
-    snp= zeros([nrows,nsnps], dtype='S1')
+    
+    snps = zeros([nrows,nsnps], dtype='S1')
+    names = []
 
     row=0
     for line in f :
         line = line.strip().split(' ')
+        names.append(line[0])
         for i in range(6, len(line), 2) :
             if line[i] == line[i+1] :
-                snp[row,(i-6)/2] = line[i] 
+                snps[row,(i-6)/2] = line[i] 
         row +=1
         if row==nrows :
             break
     
     print nsnps, nrows 
-    return snp
+    return names,snps
 
 

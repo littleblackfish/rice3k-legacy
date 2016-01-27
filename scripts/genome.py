@@ -1,3 +1,5 @@
+import re
+
 def gff3_iterator(fname) :
     f = open(fname, 'r')
     print 'parsing file :', fname
@@ -40,7 +42,7 @@ def gff3_parser(fname) :
         #f.pop('score')
         
         typ = f.pop('type')
-        sid = f.pop('seqid')
+        sid = int(re.findall('\d+',f.pop('seqid'))[0])
         fid = f['attr'].pop('ID', None)
         
         if typ == 'gene' :
@@ -73,9 +75,22 @@ def gff3_parser(fname) :
                     pass
                 if typ == 'three_prime_UTR' :
                     pass
-
-
     return genome
             
+from Bio import SeqIO
+from Bio.Alphabet import generic_dna, generic_protein
+from Bio.SeqRecord import SeqRecord 
+from Bio.Seq import Seq
 
-    
+# parse a genome fasta file and return a dictionary of chromosomes
+
+def fasta_parse(fname) : 
+    genome = []
+
+    for chrom in SeqIO.parse(fname, 'fasta', alphabet=generic_dna) :
+        genome.append(chrom.seq)
+
+    genomedict = {i+1:genome[i] for i in range(len(genome))}
+
+
+    return genomedict
