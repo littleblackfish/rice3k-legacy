@@ -147,25 +147,14 @@ def map_parser(fname) :
     
     return mapdict
 
-
-
-# returns snp indices for a given (closed) interval
-# mapfile = loadtxt (mapfname, dtype=int, usecols=(0,3))
-
-#def map_find_loci(mapdict, sid, interval) :
-#    locisnps=list()
-#    snplist = mapdict[sid]
-#    for snp in snplist :
-#        if interval[0] <= snp[0] <= interval[1] :
-#            locisnps.append(snp[1])
-#
-#    return locisnps
+# returns SNP indices and positions for a given (closed) interval
 
 def map_find_loci(mapdict, sid, interval) :
     pos = mapdict[sid][0]
     indices = where((pos>=interval[0]) & (pos<=interval[1])) [0]
-    locisnps = [mapdict[sid][1][i] for i in indices ]
-    return locisnps
+    lociSNPind = [mapdict[sid][1][i] for i in indices ]
+    lociSNPpos = [mapdict[sid][0][i] for i in indices ]
+    return lociSNPind, lociSNPpos
 
 # reads a ped file, takes only homozygous snps 
 # returns them in a '1S' numpy array

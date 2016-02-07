@@ -34,12 +34,7 @@ class genome :
 
         # and a MAP file listing SNPs
         if mapfname :
-            mapdict = map_parser(mapfname)
-            print 'Mapping snps to genes...' 
-            for gene in self.geneindex.itervalues() :
-                for mrna in gene['mRNA'].itervalues() :
-                    for interval in mrna['CDS'] :
-                        mrna['SNP'].append(map_find_loci(mapdict, mrna['seqid'], interval))
+            self.map_snps(mapfname)
             self.hasSNPs = True
         else : 
             self.hasSNPs = False
@@ -59,5 +54,40 @@ class genome :
     def __len__ (self) : return len(self.genelist)
 
     def __repr__ (self) : return 'Genome with {} genes in {} chromosomes'.format(len(self.geneindex), len(self.feat))
+
+    # assembles a product from a given list of cds
+    def cds_assemble(self,cdslist) :
+        cds = Seq('', generic_dna)
+        for s in cdslist :
+            cds += s
+        return cds
+
+            
+    def protein_iter(self) :
+        for gene in self.geneindex.itervalues() :
+            for protein in gene['mRNA'].itervalues() :
+                tmp = self.cds_assemble (protein['seq']) 
+                if gene['strand'] == '-' :
+                    tmp=tmp.reverse_complement()
+                yield tmp
+
+    # maps SNPs from a MAP file to CDS segments
+    # this way we know exactly where to look in the PED file for each CDS
+
+    def map_snps(self, mapfname):
+        mapdict = map_parser(mapfname)
+        print 'Mapping snps to genes...' 
+        for gene in self.geneindex.itervalues() :
+            for mrna in gene['mRNA'].itervalues() :
+                mrna['SNPind']=[]
+                mrna['SNPpos']=[]
+                for interval in mrna['CDS'] :
+                    # find SNPs for this CDS
+                    indices, positions = map_find_loci(mapdict, mrna['seqid'], interval)
+                    # keep indices
+                    mrna['SNPind'].append(indices)
+                    # offset positions relative to CDS frame
+                    mrna['SNPpos'].append([pos-interval[0] for pos in positions])
+                    
 
     
