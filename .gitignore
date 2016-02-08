@@ -11,3 +11,5 @@
 *.swo
 *all.cdna
 *.pyc
+*npy*
+*npz*

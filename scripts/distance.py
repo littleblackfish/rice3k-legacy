@@ -51,11 +51,14 @@ def protein(gene, pedline=None) :
 from itertools import izip
 def hamdist(str1, str2):       
     assert len(str1) == len(str2) 
-    diffs = 0
-    for ch1, ch2 in izip(str1, str2):
-        if ch1 != ch2:
-            diffs += 1
-    return diffs
+    return sum( ch1 != ch2 for ch1, ch2 in izip(str1, str2))
+
+# very fast hamming distance using numpy
+def numhamdist(str1,str2) :
+    assert len(str1) == len(str2) 
+    assert str1.dtype == '|S1' 
+    return sum(str1 != str2)
+
 
 #fast entropy calculator
 # assuming positive integers and symmetrical matrix
@@ -104,9 +107,9 @@ if __name__ == '__main__' :
 
     for gene in rice :
         # get the variant proteins for each cultivar
-        proteinlist = [ protein(gene,pedline) for pedline in snps ]
+        proteinlist = [ array(protein(gene,pedline)) for pedline in snps ]
         # add the reference too
-        proteinlist.append(protein(gene))
+        proteinlist.append(array(protein(gene)) )
 
         protsize = len(proteinlist[0])
         gname = gene['Name']
@@ -116,7 +119,9 @@ if __name__ == '__main__' :
 
         for i,p1 in enumerate(proteinlist) :
             for j,p2 in enumerate(proteinlist[i+1:]) :
-                d=hamdist(p1,p2)
+                #d=hamdist(p1,p2)
+                # very fast hamming distance using numpy (inline)
+                d = sum (p1 != p2) 
                 distmat[i][i+j+1]=d
                 distmat[i+j+1][i]=d
 
