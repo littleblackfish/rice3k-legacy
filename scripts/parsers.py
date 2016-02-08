@@ -11,7 +11,7 @@ from parsers import *
 
 def gff3_iterator(fname) :
     f = open(fname, 'r')
-    print 'Parsing annotation file :', fname
+    print '# Parsing annotation file :', fname
 
     for line in f :
         if line[0] == '#' :
@@ -109,7 +109,7 @@ def gff3_parser(fname) :
 # keys (chromosome no) are integers for convenience 
 
 def fasta_parser(fname) : 
-    print 'Parsing sequence file :', fname
+    print '# Parsing sequence file :', fname
     genome = []
 
     for chrom in SeqIO.parse(fname, 'fasta', alphabet=generic_dna) :
@@ -132,7 +132,7 @@ def ped_find_cultivar( pedfname , cultivar ) :
 # parses a MAP file into a dictionary 
 
 def map_parser(fname) :
-    print 'Parsing MAP file :', fname
+    print '# Parsing MAP file :', fname
     mapdict = { i:[] for i in range(1,13)}
     mapraw = loadtxt (fname, dtype=int, usecols=(0,3))
 
@@ -161,8 +161,9 @@ def map_find_loci(mapdict, sid, interval) :
 # along with a name list
 # as memory efficient as it gets 
 
-def PED_parse_homo(pedfname, nrows=3023) :
+def ped_parser_homo(pedfname, nrows=3023) :
     f = gzip.open(pedfname, 'r') 
+    print '# Parsing PED file :', pedfname
     
     ncols = len(f.readline().strip().split(' '))
     nsnps = (ncols-6) / 2
@@ -182,7 +183,7 @@ def PED_parse_homo(pedfname, nrows=3023) :
         if row==nrows :
             break
     
-    print nsnps, nrows 
+    print '# {} SNPs in {} cultivars.'.format(nsnps, nrows )
     return names,snps
 
 

@@ -21,7 +21,7 @@ class genome :
             for c in self.feat :
                 self.feat[c]['sequence']=self.sequence[c]
             
-            print 'Extracting sequences for genes...'
+            print '# Extracting sequences for genes...'
             for gene in self.geneindex.itervalues() : 
                 for mrna in gene['mRNA'].itervalues() : 
                     mrna['seq']=[]
@@ -76,7 +76,7 @@ class genome :
 
     def map_snps(self, mapfname):
         mapdict = map_parser(mapfname)
-        print 'Mapping snps to genes...' 
+        print '# Mapping snps to genes...' 
         for gene in self.geneindex.itervalues() :
             for mrna in gene['mRNA'].itervalues() :
                 mrna['SNPind']=[]

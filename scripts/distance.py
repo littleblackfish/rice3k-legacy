@@ -4,8 +4,6 @@ import Bio.SubsMat.MatrixInfo as subs
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna, generic_protein
 
-
-
 # assembles a product from a given list of cds
 def cds_assemble(cdslist) :
     cds = Seq('', generic_dna)
@@ -14,14 +12,13 @@ def cds_assemble(cdslist) :
     return cds
 
 
-
-
+#
 def protein(gene, pedline=None) :
        #take 1st product for simplicity
         product = gene['mRNA'].values()[0]
         
         #return translated product id there is no pedline
-        if pedline == None  :
+        if not isinstance(pedline, ndarray)     :
             tmp = cds_assemble(product['seq'])
 
         else : 
@@ -48,6 +45,8 @@ def protein(gene, pedline=None) :
             return tmp.reverse_complement().translate()
 
 
+# fast hamming distance calculator
+# this should do until we introduce a proper scoring matrix
 
 from itertools import izip
 def hamdist(str1, str2):       
@@ -63,7 +62,7 @@ def hamdist(str1, str2):
 from numpy import *
 def matentropy(mat) :
 
-    assert mat.dtype == int
+    assert mat.dtype == dtype('uint16')
     
     counts = zeros(mat.max()+1)
     for i,line in enumerate(mat) : 
@@ -83,29 +82,53 @@ def matentropy(mat) :
 
 
 if __name__ == '__main__' : 
+    from sys import argv
+
+    gff3fname = argv[1]
+    fastafname = argv[2]
+    mapfname = argv[3]
+    pedfname = argv[4]
+    
     from genome import genome
-    rice = genome('../data/MSU7/all.chrs.gff3', '../data/MSU7/all.chrs.con', '../data/filtered.map.gz')
+    rice = genome(gff3fname, fastafname, mapfname)
 
-    from parsers import PED_parse_homo
-    cname, snps = PED_parse_homo('../data/filtered.ped.gz', 100 )
-    from pylab import zeros,sum,matshow, show
+    from parsers import ped_parser_homo
+    if len(argv)>5 :
+        cname, snps = ped_parser_homo(pedfname, int(argv[5]) )
+    else : 
+        cname, snps = ped_parser_homo(pedfname)
+    ncultivars = len(cname)+1
 
-    entlist=[]
+    from numpy import *
+    from subprocess import Popen
+
     for gene in rice :
+        # get the variant proteins for each cultivar
+        proteinlist = [ protein(gene,pedline) for pedline in snps ]
+        # add the reference too
+        proteinlist.append(protein(gene))
 
-        proteins = [ protein(gene,pedline) for pedline in snps ]
+        protsize = len(proteinlist[0])
+        gname = gene['Name']
 
-        distmat = zeros ([len(proteins), len(proteins)], dtype=int)
+        # calculate hamming distances btw each cultivar
+        distmat = zeros ([ncultivars, ncultivars], dtype=uint16)
 
-        for i,p1 in enumerate(proteins) :
-            for j,p2 in enumerate(proteins[i+1:]) :
-                #print i,i+j
+        for i,p1 in enumerate(proteinlist) :
+            for j,p2 in enumerate(proteinlist[i+1:]) :
                 d=hamdist(p1,p2)
                 distmat[i][i+j+1]=d
+                distmat[i+j+1][i]=d
 
+        # calculate entropy of distance matrix
         s = matentropy(distmat)
-        print s
-        entlist.append[s]
-       # if sum(distmat) >len(proteins[0]) : 
-         #   matshow(distmat)
-          #  show()
+        # gene name, protein length, entropy, normalized entropy
+        print gname, protsize, s, s/log2(protsize)
+        
+        # save the distance matrix it is not trivial
+        if s >1e-10 :
+            save(gname,distmat)
+            Popen(['gzip', gname+'.npy'])
+
+
+
