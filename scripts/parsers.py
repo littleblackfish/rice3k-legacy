@@ -186,4 +186,37 @@ def ped_parser_homo(pedfname, nrows=3023) :
     print '# {} SNPs in {} cultivars.'.format(nsnps, nrows )
     return names,snps
 
+def ped_stats(pedfname, nrows=3023) :
+    f = gzip.open(pedfname, 'r') 
+    print '# Parsing PED file :', pedfname
+    
+    # figure out number of snps
+    ncols = len(f.readline().strip().split(' '))
+    nsnps = (ncols-6) / 2
+    f.rewind()
+    
+    stats = {}
+
+    for row,line in enumerate(f) :
+        line = line.strip().split(' ')
+        name = line[0] #cultivar name
+        homoCount   = 0
+        heteroCount = 0
+        missingCount = 0 
+        for i in range(6, len(line), 2) :
+            assert line[i] in ('A','T','C','G','0'), 'wtf is this {}'.format(line[i])
+            if line[i] == '0' :
+                missingCount+=1
+            elif line[i] == line[i+1] :
+                homoCount +=1
+            else :
+                heteroCount +=1 
+        stats[name]=(homoCount,heteroCount,missingCount)
+
+        if row==nrows :
+            break
+
+    return stats
+
+
 
