@@ -31,6 +31,14 @@ NB-core_v4/core-filtered.%.gz :  NB-core_v4/NB-core_v4.map.gz  NB-core_v4/NB-cor
 		gzip core-filtered.map ;\
 		rm tmp.???
 
-
+3krg_filt_snp_v4/3krg_filt_snp_v4.%.gz : 
+	cd $(@D); wget -N https://s3.amazonaws.com/3kricegenome/reduced/$(@F)
 	
-
+%/filtered.%.gz :  NB-core_v4/NB-core_v4.map.gz  NB-core_v4/NB-core_v4.ped.gz  MSU7/cds_regions
+	cd $(@D);\
+       		gunzip 	$(@D).map.gz -c > tmp.map;\
+		gunzip  $(@D).ped.gz -c > tmp.ped;\
+		plink --make-set ../MSU7/cds_regions --gene-all --file tmp --make-bed --recode --out filtered; \
+		gzip filtered.ped ; \
+		gzip filtered.map ;\
+		rm tmp.???
