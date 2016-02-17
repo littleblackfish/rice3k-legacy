@@ -1,6 +1,6 @@
 all : coding
 
-base = 3krg_filt_snp
+base = 3krg_filt_snp_v4
 url = https://s3.amazonaws.com/3kricegenome/reduced
 
 raw : ${base}.map.gz  ${base}.ped.gz  shasum
