@@ -153,7 +153,7 @@ def calc_distmat(gene) :
         print 'has no entropy, not saving it.'
 
     # gene name, protein length, entropy, normalized entropy
-    return None
+    return gname, s
 
 
 if __name__ == '__main__' : 
