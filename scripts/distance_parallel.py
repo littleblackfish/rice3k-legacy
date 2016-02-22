@@ -4,6 +4,9 @@ import Bio.SubsMat.MatrixInfo as subs
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna, generic_protein
 from itertools import izip
+from numpy import *
+from os.path import isfile
+from collections import Counter
 
 
 # returns the 'dynamic' subset of the translated product
@@ -76,33 +79,23 @@ def score_by_matrix(seq1, seq2, scoring_matrix) :
     return score, hasPTC
 
 
-#fast entropy calculator
-# assuming positive integers and symmetrical matrix
-from numpy import *
+# fast matrix entropy calculator
+# returns entropy in bits
 def matrix_entropy(matrix) :
+    counter = Counter() 
+    for i in matrix.flat :
+        counter[i] +=1 
 
-    assert matrix.dtype == dtype('int16')
+    N = float(sum(counter.values()))
+    log2N = log2(N)
     
-    counts = zeros(matrix.max()+1)
-    for i,line in enumerate(matrix) : 
-        for d in line[i+1:] :
-            counts[d]+=1
+    return -sum([c * (log2(c)-log2N) for c in  counter.itervalues()  ]) / N
 
-    n = len(matrix)
-    N = (n*(n-1))/2
-    logN = log2(N)
-    
-    entropy = 0.
-    for c in counts :
-        if c : entropy += c*(log2(c)-logN)
-
-    return -entropy/N
-
-from numpy import *
-from subprocess import Popen
-from os.path import isfile
 
 blosum = complete_scoring(subs.blosum60)
+# calculates a distance matrix and associated metadata
+# saves all of them to a npz file
+
 def calc_distmat(gene) :
     gname = gene['Name']
     print gname,
@@ -112,18 +105,31 @@ def calc_distmat(gene) :
         print 'already exists, skipping it!'
         return None
 
+    # get the full reference sequence
+    if gene['strand'] =='+' :   reference = gene['mRNA'].values()[0]['seq-full'].translate()
+    else :                      reference = gene['mRNA'].values()[0]['seq-full'].reverse_complement().translate()
+    # get the dynamic component of the reference sequence
+    reference_dynamic = get_dynamic_for_cultivar(gene, zeros(snps.shape[1],dtype='|S1'))
+
+    #get the score for the static subset of the sequence
+    fullscore = score_by_matrix(reference,reference,blosum)[0]
+    dynscore = score_by_matrix(reference_dynamic,reference_dynamic,blosum)[0]
+    staticScore = fullscore-dynscore
+ #   print ' ', fullscore, dynscore, staticScore
+    
+    nsnps = len(gene['mRNA'].values()[0]['SNPpos'])
+
     # get the variant proteins for each cultivar
     proteinlist = [ get_dynamic_for_cultivar(gene,pedline) for pedline in snps ]
     # add the reference too
-#    proteinlist.append(protein(gene) )
+    proteinlist.append(reference_dynamic)
     # go full numpy
     proteinlist=array(proteinlist)
-    
-    # length of this protein
-    protsize = proteinlist.shape[1]
+    ncultivars, protsize = proteinlist.shape
+
 
     # track if there is a premature termination codon anywhere
-    hasPTC = 0
+    hasPTC = zeros(ncultivars,bool)
 
     # calculate distances (scores) btw each cultivar
     distmat = zeros ([ncultivars, ncultivars], dtype=int16)
@@ -134,23 +140,20 @@ def calc_distmat(gene) :
             distmat[i][i+j]=dist
             distmat[i+j][i]=dist
         
-        hasPTC += hasPTC_this
+        hasPTC [i] = hasPTC_this
 
-    distmat -= distmat.min()
     # calculate entropy of distance matrix
     s = matrix_entropy(distmat)
     
-    # save the distance matrix it is not trivial
+    # save the distance matrix if it is not trivial
     if s >1e-10 :
-        savez_compressed(gname, dist=distmat, name=gname, note=gene['Note'], size=protsize, s=s, hasPTC=hasPTC  )
-        print 'has {:.2f} bits of entropy and {} PTCs.'.format(s,hasPTC)
+        savez_compressed(gname, seq=reference, static=staticScore ,dist=distmat, name=gname, note=gene['Note'], size=protsize, s=s, hasPTC=hasPTC, nsnps=nsnps  )
+        print 'has {:.2f} bits of entropy'.format(s)
     else :
-        print 'is trivial (s=0),  it.'
+        print 'has no entropy, not saving it.'
 
     # gene name, protein length, entropy, normalized entropy
-    return gname, protsize, s, s/log2(protsize)
-
-    
+    return None
 
 
 if __name__ == '__main__' : 
@@ -160,7 +163,6 @@ if __name__ == '__main__' :
     fastafname = argv[2]
     mapfname = argv[3]
     pedfname = argv[4]
-    
     from genome import genome
     rice = genome(gff3fname, fastafname, mapfname)
 
@@ -173,8 +175,9 @@ if __name__ == '__main__' :
 
 
     from joblib import Parallel, delayed
-  #  a= Parallel(n_jobs=-1,verbose=5) (delayed(calc_distmat)(gene) for gene in rice )
-    [calc_distmat(gene) for gene in rice ]
+    log=Parallel(n_jobs=-1,verbose=5) (delayed(calc_distmat)(gene) for gene in rice )
+    #[calc_distmat(gene) for gene in rice ]
+    savetxt('complete.log',log,fmt='%s')
 
         
 
