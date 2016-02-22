@@ -3,61 +3,44 @@
 import Bio.SubsMat.MatrixInfo as subs
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna, generic_protein
-
-# assembles a product from a given list of cds
-def cds_assemble(cdslist) :
-    cds = Seq('', generic_dna)
-    for s in cdslist :
-        cds += s
-    return cds
+from itertools import izip
 
 
-#
-def protein_cultivar(gene, pedline) :
-   #take 1st product for simplicity
-    product = gene['mRNA'].values()[0]
+# returns the 'dynamic' subset of the translated product
+# dynamic meaning those aminoacids with snps on them
+
+def get_dynamic_for_cultivar(gene, pedline) :
+   #take 1st mrna for simplicity
+    mrna = gene['mRNA'].values()[0]
     
-    newseq = [cds.tomutable() for cds in product['seq'] ]
+    newseq = mrna['seq-full'].tomutable()
 
-    for i in range(len(newseq)) :
-        seq = newseq[i]
-        snpind = product['SNPind'][i]
-        snppos = product['SNPpos'][i]
-        for j in range(len(snppos)) :
-            ind=snpind[j]
-            pos=snppos[j]
-            newchar = pedline[ind]
-         #   print ind, pos, newchar, 'jio'
-            if newchar not in  ('', '0') :
-                seq[pos] = pedline[ind]
+    for snpind,snppos in izip(mrna['SNPind'],mrna['SNPpos']) :
+        newchar = pedline[snpind]
+        if newchar not in  ('', '0') :
+            newseq[snppos] = newchar
 
-    tmp = cds_assemble(newseq)
-
-    assert len(tmp) %3 == 0, 'cds not of length 3n'
-
+    assert len(newseq) %3 == 0, 'cds not of length 3n'
+    newseq = newseq.toseq()
 
     if gene['strand'] == '+' :
-        return tmp.translate()
-    else :
-        return tmp.reverse_complement().translate()
-
-def protein(gene) :
-    
-    #take 1st product for simplicity
-    product = gene['mRNA'].values()[0]
+        product  = newseq.translate()
+        # select 'dynamic' AAs and remove duplicates
+        dynamics = sorted(set([i/3 for i in mrna['SNPpos']] ))
         
-    tmp = cds_assemble(product['seq'])
+    else :
+        product = newseq.reverse_complement().translate()
+        # re-map snp positions for reverse complement 
+        flipSNPpos = [len(newseq) - i - 1   for i in mrna['SNPpos']]
+        dynamics = sorted(set([i/3 for i in flipSNPpos]))
 
-    if gene['strand'] == '+' :  return tmp.translate()
-    else :                      return tmp.reverse_complement().translate()
-
+    return [product[i] for i in dynamics ]
 
 
 
 # fast hamming distance calculator
 # this should do until we introduce a proper scoring matrix
 
-from itertools import izip
 def hamdist_iter(str1, str2):       
     assert len(str1) == len(str2) 
     return sum( ch1 != ch2 for ch1, ch2 in izip(str1, str2))
@@ -98,7 +81,7 @@ def score_by_matrix(seq1, seq2, scoring_matrix) :
 from numpy import *
 def matrix_entropy(matrix) :
 
-    assert matrix.dtype == dtype('uint16')
+    assert matrix.dtype == dtype('int16')
     
     counts = zeros(matrix.max()+1)
     for i,line in enumerate(matrix) : 
@@ -130,9 +113,9 @@ def calc_distmat(gene) :
         return None
 
     # get the variant proteins for each cultivar
-    proteinlist = [ protein_cultivar(gene,pedline) for pedline in snps ]
+    proteinlist = [ get_dynamic_for_cultivar(gene,pedline) for pedline in snps ]
     # add the reference too
-    proteinlist.append(protein(gene) )
+#    proteinlist.append(protein(gene) )
     # go full numpy
     proteinlist=array(proteinlist)
     
@@ -143,7 +126,7 @@ def calc_distmat(gene) :
     hasPTC = 0
 
     # calculate distances (scores) btw each cultivar
-    distmat = zeros ([ncultivars, ncultivars], dtype=uint16)
+    distmat = zeros ([ncultivars, ncultivars], dtype=int16)
 
     for i,p1 in enumerate(proteinlist) :
         for j,p2 in enumerate(proteinlist[i:]) :
@@ -153,12 +136,13 @@ def calc_distmat(gene) :
         
         hasPTC += hasPTC_this
 
+    distmat -= distmat.min()
     # calculate entropy of distance matrix
     s = matrix_entropy(distmat)
     
     # save the distance matrix it is not trivial
     if s >1e-10 :
-        savez_compressed(gname, dist=distmat, name=gname, note=gene['Note'], size=protsize, s=s, snorm=s/log2(protsize),hasPTC=hasPTC  )
+        savez_compressed(gname, dist=distmat, name=gname, note=gene['Note'], size=protsize, s=s, hasPTC=hasPTC  )
         print 'has {:.2f} bits of entropy and {} PTCs.'.format(s,hasPTC)
     else :
         print 'is trivial (s=0),  it.'
@@ -189,8 +173,8 @@ if __name__ == '__main__' :
 
 
     from joblib import Parallel, delayed
-    a= Parallel(n_jobs=-1,verbose=5) (delayed(calc_distmat)(gene) for gene in rice )
- #   [calc_distmat(gene) for gene in rice ]
+  #  a= Parallel(n_jobs=-1,verbose=5) (delayed(calc_distmat)(gene) for gene in rice )
+    [calc_distmat(gene) for gene in rice ]
 
         
 

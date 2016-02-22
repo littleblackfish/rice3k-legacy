@@ -81,13 +81,28 @@ class genome :
             for mrna in gene['mRNA'].itervalues() :
                 mrna['SNPind']=[]
                 mrna['SNPpos']=[]
-                for interval in mrna['CDS'] :
-                    # find SNPs for this CDS
-                    indices, positions = map_find_loci(mapdict, mrna['seqid'], interval)
-                    # keep indices
-                    mrna['SNPind'].append(indices)
-                    # offset positions relative to CDS frame
-                    mrna['SNPpos'].append([pos-interval[0] for pos in positions])
-                    
+                mrna['SNPpos-old']=[]
+        
+                nCDS = len(mrna['CDS']) # number of ranges to append
+                
+                seqCDS = Seq('',generic_dna) # empty sequence
+                
 
-    
+                for i in range(nCDS) : 
+                    # interval for this cds segment
+                    interval = mrna['CDS'][i]
+
+                    # find SNPs in this interval
+                    indices, positions = map_find_loci(mapdict, mrna['seqid'], interval)
+
+                    # PED indices remain unchanged 
+                    mrna['SNPind'] += indices
+                    
+                    # offset and append positions (on the sequence)
+                    mrna['SNPpos'] += [ p - interval[0] + len(seqCDS) for p in positions]
+                    mrna['SNPpos-old'].append([p-interval[0] for p in positions])
+
+                    # append cds sequence
+                    seqCDS += mrna['seq'][i]
+
+                mrna['seq-full'] = seqCDS 
