@@ -41,14 +41,14 @@ def get_dynamic_for_cultivar(gene, pedline) :
 
 
 
-# fast hamming distance calculator
-# this should do until we introduce a proper scoring matrix
+# fast hamming distance calculator for any iterable
 
 def hamdist_iter(str1, str2):       
     assert len(str1) == len(str2) 
     return sum( ch1 != ch2 for ch1, ch2 in izip(str1, str2))
 
 # very fast hamming distance using numpy
+
 def hamdist_numpy(str1,str2) :
     assert len(str1) == len(str2) 
     assert str1.dtype == '|S1' 
@@ -158,6 +158,7 @@ def calc_distmat(gene) :
 
 if __name__ == '__main__' : 
     from sys import argv
+    from glob import iglob
 
     gff3fname = argv[1]
     fastafname = argv[2]
@@ -165,6 +166,8 @@ if __name__ == '__main__' :
     pedfname = argv[4]
     from genome import genome
     rice = genome(gff3fname, fastafname, mapfname)
+
+
 
     from parsers import ped_parser_homo
     if len(argv)>5 :
@@ -174,9 +177,19 @@ if __name__ == '__main__' :
     ncultivars = len(cname)+1
 
 
+    # do not re-do if files exist
+    done = [fname.split('.')[0] for fname in glob.iglob('*.npz')]
+
+    todo = []
+    for gene in rice.genelist :
+        if gene not in done :
+            todo.append(gene) 
+
+    print '# going to work on {} remaining genes now.'.format(len(todo))
+
     from joblib import Parallel, delayed
-    log=Parallel(n_jobs=-1,verbose=5) (delayed(calc_distmat)(gene) for gene in rice )
-    #[calc_distmat(gene) for gene in rice ]
+    log=Parallel(n_jobs=-1,batch_size=100,verbose=10) (delayed(calc_distmat)(rice[gene]) for gene in todo )
+#    log=[calc_distmat(gene) for gene in rice ]
     savetxt('complete.log',log,fmt='%s')
 
         
