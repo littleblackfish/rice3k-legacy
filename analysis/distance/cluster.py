@@ -42,14 +42,13 @@ if __name__=='__main__' :
         else :
            fullmat = data['dist']
 
-        Z = hier.linkage(fullmat, method='average')
+        Z = hier.linkage(fullmat, method='centroid')
 
         leaves = hier.leaves_list(Z)
-
-#        newmat=matrix[leaves,:]
+#        newmat=fullmat[leaves,:]
 #        newmat=newmat[:,leaves]
         
-        label = hier.cut_tree(Z, n_clusters=nclusters).flatten()
+        label = hier.fcluster(Z, nclusters, criterion='maxclust')
         
         clusterlist.append(label)
         if not hasPTC : 
