@@ -23,7 +23,7 @@ def get_dynamic_for_cultivar(gene, pedline) :
         if newchar not in  ('', '0') :
             newseq[snppos] = newchar
 
-    assert len(newseq) %3 == 0, 'cds not of length 3n'
+    #assert len(newseq) %3 == 0, 'cds not of length 3n'
     newseq = newseq.toseq()
 
     if gene['strand'] == '+' :
@@ -178,7 +178,7 @@ if __name__ == '__main__' :
 
 
     # do not re-do if files exist
-    done = [fname.split('.')[0] for fname in glob.iglob('*.npz')]
+    done = [fname.split('.')[0] for fname in iglob('*.npz')]
 
     todo = []
     for gene in rice.genelist :
