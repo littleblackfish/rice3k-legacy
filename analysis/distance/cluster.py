@@ -3,9 +3,9 @@
 from sys import argv
 from numpy import *
 import scipy.cluster.hierarchy as hier
-from glob import iglob
+from glob import iglob,glob
 from sklearn.metrics import normalized_mutual_info_score
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import pdist,squareform
 
 
 def cluster(matrix) : 
@@ -30,12 +30,18 @@ def integrate_ptc(data) :
 if __name__=='__main__' :
 
     nclusters=10
+    nsamples = 100
 
     clusterlist = list()
     clusterlist_noptc = list()
+    
+    filelist = glob('blosum60/*.npz') 
+    from random import sample
+   
 
-    for fname in iglob('*.npz'):
+    for fname in sample(filelist, nsamples):
         data = load(fname)
+	print fname
         hasPTC = data['hasPTC'].any() 
         if hasPTC :
            fullmat = integrate_ptc(data)
@@ -55,9 +61,10 @@ if __name__=='__main__' :
             clusterlist_noptc.append(label)
 
     distmat = pdist(clusterlist, normalized_mutual_info_score)
-    savetxt('distmat.dat',distmat)
+    savetxt('cluster_nmi-{}.dat'.format(nsamples), squareform(distmat))
     distmat_noptc = pdist(clusterlist_noptc, normalized_mutual_info_score)
-    savetxt('distmat_noptc.dat',distmat)
+    savetxt('cluster_nmi_noptc-{}.dat'.format(nsamples),squareform(distmat_noptc))
+
 
 
 
