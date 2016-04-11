@@ -75,7 +75,7 @@ class genome :
     # this way we know exactly where to look in the PED file for each CDS
 
     def map_snps(self, mapfname):
-        mapdict = map_parser(mapfname)
+        mapdict = map_dict(mapfname)
         print '# Mapping snps to genes...' 
         for gene in self.geneindex.itervalues() :
             for mrna in gene['mRNA'].itervalues() :

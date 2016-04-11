@@ -128,16 +128,23 @@ def ped_find_cultivar( pedfname , cultivar ) :
         if line[:len(cultivar)] == cultivar :
             return line.strip()
 
-# parses a MAP file into a dictionary 
 
 def map_parser(fname) :
     print '# Parsing MAP file :', fname
-    mapdict = { i:[] for i in range(1,13)}
     mapraw = loadtxt (fname, dtype=int, usecols=(0,3))
 
+    return sorted([(line[0], line[1]) for line in mapraw])
+     
+
+
+# parses a MAP file into a dictionary 
+
+def map_dict(fname) : 
+    mapraw = loadtxt (fname, dtype=int, usecols=(0,3))
+
+    mapdict = { i:[] for i in range(1,13)}
     for i in range(len(mapraw)) :
         mapdict[mapraw[i][0]].append([mapraw[i][1], i])
-
 
     # make sure it is sorted by position
     for i in range(1,13) :
@@ -270,6 +277,6 @@ def strip_vcf (vcffile) :
                         pos.append ( (chrno, index) )
                         seq.append ( line[4] )
 
-    return array(pos), seq
+    return pos, seq
             
 

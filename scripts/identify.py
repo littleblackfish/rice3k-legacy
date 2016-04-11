@@ -4,7 +4,7 @@
 from numpy import *
 import gzip 
 import re
-from parsers import ped_iterator,strip_vcf
+from parsers import ped_iterator,strip_vcf,map_parser
 from distance import hamdist
 from itertools import izip
 
@@ -16,6 +16,8 @@ def multidim_intersect(arr1, arr2):
     intersected = intersect1d(arr1_view, arr2_view)
     return intersected.view(arr1.dtype).reshape(-1, arr1.shape[1])
 
+def loci_intersect(poslist1, poslist2) :
+    return sorted(set(poslist1).intersection(set(poslist2)))
 
 # finds the indices of small array in big 
 
@@ -53,12 +55,14 @@ if __name__ == '__main__' :
 
     # load plink MAP file 
     # this is the index for SNPs in the PED file
-    mapfile = loadtxt (args.plinkfname+'.map.gz', dtype=int, usecols=(0,3))
+#    mapfile = loadtxt (args.plinkfname+'.map.gz', dtype=int, usecols=(0,3))
+    plinkPos = map_parser(args.plinkfname+'.map.gz')
 
     # get intersection of SNPs in MAP and VCF files
     print 'finding intersection...'
-    intersect = multidim_intersect(unknownPos,mapfile)
-    mapindex = find_indices(intersect, mapfile)
+    intersect = multidim_intersect(array(unknownPos),array(plinkPos))
+#    intersect = loci_intersect(unknownPos, plinkPos)
+    mapindex = find_indices(intersect, plinkPos)
     unknownindex = find_indices(intersect, unknownPos)
 
     #create reference sequence for the unknown cultivar
@@ -66,7 +70,7 @@ if __name__ == '__main__' :
     for i in unknownindex :
         unknownSeq+=unknownBase[i]
 
-    #unknownSeq=unknownBase[unknownindex]dd
+    #unknownSeq=unknownBase[unknownindex]
 
     
     # compare reference sequence with each cultivar in the PED file
@@ -75,14 +79,19 @@ if __name__ == '__main__' :
     distlist=[]
     for cultName, cultSeq in ped_iterator(args.plinkfname+'.ped.gz', mapindex) :
         namelist.append(cultName)
-        distlist.append(hamdist(unknownSeq, cultSeq))
+        distlist.append(hamdist(unknownSeq, cultSeq)/float(len(intersect)))
+
+    rank = argsort(distlist)
 
     # write distance list
     with open(unknownName+'.dist', 'w') as f :
+        f.write( '# unknown cultivar provided in {}\n'.format(args.vcffname))
+        f.write( '# compared against database in {}\n'.format(args.plinkfname))
+        f.write( '# intersect\tunknown\tdatabase\n{}\t{}\t{}\n'.format(len(intersect),len(unknownPos),len(plinkPos)))
+        for i in range(3) :
+            f.write( '# {}\t{:.3f}\t{} \n'.format(i+1, distlist[rank[i]], namelist[rank[i]]))
         for name, dist in izip(namelist,distlist) :
-            f.write('{}\t{:.3f}\n'.format(name,dist) )
+            f.write('{}\t{:.3f}\n'.format(name, dist) )
 
     # print some stats
-    print '{} intersecting out of {} SNPs and {} in the database ({})'.format(len(intersect), len(unknownPos), len(mapfile), args.plinkfname)
-    print 'best match is {} with {:.3f} normalized hamming distance.'.format(namelist[argmin(distlist)], min(distlist)/float(len(intersect)))
     
