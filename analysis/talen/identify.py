@@ -36,18 +36,18 @@ def find_indices(small, big) :
 # returns ' ' for heretozygous SNP at the given indice
 
 def ped_iterator(pedfname, index) :
-    f = gzip.open(pedfname, 'r')
-    for line in f :
-        snpseq=''
-        tmp = line.strip().split(' ')
-        for i in index :
-            alelle1 = tmp[6+2*i]
-            alelle2 = tmp[7+2*i]
-            if alelle1 == alelle2 :
-                snpseq += alelle1 
-            else :
-                snpseq += ' '
-        yield tmp[0], snpseq
+    with gzip.open(pedfname, 'r') as f:
+        for line in f :
+            snpseq=''
+            tmp = line.strip().split(' ')
+            for i in index :
+                alelle1 = tmp[6+2*i]
+                alelle2 = tmp[7+2*i]
+                if alelle1 == alelle2 :
+                    snpseq += alelle1 
+                else :
+                    snpseq += ' '
+            yield tmp[0], snpseq
 
 
 # hamming distance
@@ -59,12 +59,13 @@ def hamdist(str1, str2):
             diffs += 1
     return diffs
 
+
 # much faster hamming distance
-#
-#from itertools import imap
-#def hamdist(str1, str2):
-#    assert len(str1) == len(str2)
-#    return sum(imap(lambda x,y: x!=y, str1, str2))
+from itertools import izip
+def hamdist(str1, str2):       
+    assert len(str1) == len(str2) 
+    return sum( ch1 != ch2 for ch1, ch2 in izip(str1, str2))
+
 
 # reads vsf file line by line, returns stripped version
 # only reads homozygous SNPs that are different from the reference
@@ -76,60 +77,65 @@ def hamdist(str1, str2):
 
 
 def strip_vcf (vcffile) :
-    f=open(vcffile, 'r')
+    with open(vcffile, 'r') as f:
 
-    
-    pos = [] 
-    seq = '' 
+        pos = [] 
+        seq = '' 
 
-    for line in f :
-        if line[0] != '#' :
-            line=line.strip().split()
-            if len(line[3]) == 1 and len(line[4]) == 1 and line[4] != '.' :
-                genotype = line[9].split(':')[0]
-                if genotype == '1/1' :
-                    pos .append ( [int(re.search("\d+",line[0]).group()), int(line[1])] )
-                    seq +=  ( line[4] )
+        for line in f :
+            if line[0] != '#' :
+                line=line.strip().split()
+                if len(line[3]) == 1 and len(line[4]) == 1 and line[4] != '.' :
+                    genotype = line[9].split(':')[0]
+                    if genotype == '1/1' :
+                        pos .append ( [int(re.search("\d+",line[0]).group()), int(line[1])] )
+                        seq +=  ( line[4] )
 
     return array(pos), seq 
             
 
 
+if __name__ == '__main__' : 
 
-from sys import argv
+    import argparse,os
 
-#fname = 'CX133.lean.homo.dat'
-#fname = argv[1]
-#unknown = loadtxt(fname, usecols=[0,1], dtype = int)
-#unknownBase = loadtxt(fname, usecols=[3], dtype = str)
-#reference = loadtxt(fname, usecols=[2], dtype = str)
+    parser = argparse.ArgumentParser() 
+    parser.add_argument('plinkfname', help="plink file basename for the database")
+    parser.add_argument('vcffname', help="vcf file for the unkown cultivar")
 
+    args=parser.parse_args()
+            
+    # strip vcf file to get homozygous snps only
+    # positions are (chromosome, index) 
+    unknownPos, unknownBase = strip_vcf(args.vcffname) 
+    unknownName = os.path.splitext(args.vcffname)[0]
 
-unknownPos, unknownBase = strip_vcf(argv[1]) 
+    # load plink MAP file 
+    # this is the index for SNPs in the PED file
+    mapfile = loadtxt (args.plinkfname+'.map.gz', dtype=int, usecols=(0,3))
 
-mapfile = loadtxt ('../../data/NB-core_v4/NB-core_v4.map', dtype=int, usecols=(0,3))
+    # get intersection of SNPs in MAP and VCF files
+    print 'finding intersection...'
+    intersect = multidim_intersect(unknownPos,mapfile)
+    mapindex = find_indices(intersect, mapfile)
+    unknownindex = find_indices(intersect, unknownPos)
 
+    # create reference sequence for the unknown cultivar
+    unknownSeq=''
+    for i in unknownindex :
+        unknownSeq+=unknownBase[i]
 
-# In[22]:
+    
+    # compare reference sequence with each cultivar in the PED file
+    print "calculating differences..."
+    namelist=[]
+    distlist=[]
+    for cultName, cultSeq in ped_iterator(args.plinkfname+'.ped.gz', mapindex) :
+        namelist.append(cultName)
+        distlist.append(hamdist(unknownSeq, cultSeq))
 
-intersect = multidim_intersect(unknownPos,mapfile)
-mapindex = find_indices(intersect, mapfile)
-unknownindex = find_indices(intersect, unknownPos)
-
-
-# In[23]:
-
-unknownSeq=''
-for i in unknownindex :
-    unknownSeq+=unknownBase[i]
-
-
-# In[31]:
-
-name=[]
-dist=[]
-for cultivar in ped_iterator('../../data/NB-core_v4/NB-core_v4.ped.gz', mapindex) :
-    name.append(cultivar[0])
-    dist.append(hamdist(unknownSeq, cultivar[1]))
-
-print argv[1], len(unknownPos), len(mapfile), len(intersect), 1.0-float(min(dist))/float(len(intersect)),  name[argmin(dist)]
+    with open(unknownName+'.dist', 'w') as f :
+        for name, dist in izip(namelist,distlist) :
+            f.write('{}\t{:.3f}\n'.format(name,dist) )
+    
+  #  print unknownName, len(unknownPos), len(mapfile), len(intersect), 1.0-float(min(dist))/float(len(intersect)),  name[argmin(dist)]
