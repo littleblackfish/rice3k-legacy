@@ -194,7 +194,7 @@ def ped_iterator(pedfname, index) :
     with gzip.open(pedfname, 'r') as f:
         for line in f :
             snpseq=''
-            tmp = line.strip().split(' ')
+            tmp = line.strip().split()
             name = tmp[0]
             for i in index :
                 alelle1 = tmp[6+2*i]
