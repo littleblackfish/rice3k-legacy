@@ -4,8 +4,7 @@ from Bio import SeqIO
 from Bio.Alphabet import generic_dna, generic_protein
 from Bio.SeqRecord import SeqRecord 
 from Bio.Seq import Seq
-from parsers import *
-
+import re
 
 
 
@@ -186,6 +185,28 @@ def ped_parser_homo(pedfname, nrows=3023) :
     print '# {} SNPs in {} cultivars.'.format(nsnps, nrows )
     return names,snps
 
+# reads ped file line by line and returns a string of SNPs 
+# returns only SNPs from the given index
+# returns only homozygous SNPs
+# returns ' ' for heretozygous SNP at the given indice
+
+def ped_iterator(pedfname, index) :
+    with gzip.open(pedfname, 'r') as f:
+        for line in f :
+            snpseq=''
+            tmp = line.strip().split(' ')
+            name = tmp[0]
+            for i in index :
+                alelle1 = tmp[6+2*i]
+                alelle2 = tmp[7+2*i]
+                if alelle1 == alelle2 :
+                    snpseq += alelle1 
+                else :
+                    snpseq += ' '
+            yield name, snpseq
+
+
+
 def ped_stats(pedfname, nrows=3023) :
     f = gzip.open(pedfname, 'r') 
     print '# Parsing PED file :', pedfname
@@ -219,4 +240,36 @@ def ped_stats(pedfname, nrows=3023) :
     return stats
 
 
+
+
+# reads vsf file line by line, returns stripped version
+# only reads homozygous SNPs that are different from the reference
+# replaces
+# awk 'length($4) == 1 && length($5) == 1 && $5 != "\." { print $1,$2,$4,$5,$10 }' ${input} |\
+#      	sed 's/\:.*//' |\
+#	sed 's/\(Osj\)\?[Cc]hr0\?//' |\
+#	awk '{if ($5 == "1/1") print $1,$2,$3,$4}' 
+# returns (chromosome, index), sequence
+
+
+def strip_vcf (vcffile) :
+    with open(vcffile, 'r') as f:
+
+        pos = [] 
+        seq = [] 
+
+        for line in f :
+            if line[0] != '#' :
+                line=line.strip().split()
+                if len(line[3]) == 1 and len(line[4]) == 1 and line[4] != '.' :
+                    genotype = line[9].split(':')[0]
+                    if genotype == '1/1' :
+                        # extract numerical chromosome no
+                        chrno= int(re.search("\d+",line[0]).group())
+                        index= int(line[1])
+                        pos.append ( (chrno, index) )
+                        seq.append ( line[4] )
+
+    return array(pos), seq
+            
 
