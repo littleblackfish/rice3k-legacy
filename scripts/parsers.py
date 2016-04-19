@@ -275,8 +275,6 @@ def ped_stats(pedfile, reference=None, nrows=None) :
         if nrows is not None and row==nrows :
             break
 
-    stats['nsnps'] = len(seq)
-
     return stats
 
 
