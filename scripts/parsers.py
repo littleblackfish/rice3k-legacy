@@ -129,19 +129,21 @@ def fasta_reference(fastafname, mapfname) :
 
     return ''.join(reference)
 
-# get the line for a given cultivar
 
-def ped_find_cultivar( pedfname , cultivar ) :
-    f = gzip.open(pedfname,'r')
+# convenience function to open coupled map/ped files
+import gzip
+def plink_open(basename) :
+    try :       mapfile = open(basename+'.map') 
+    except :    mapfile = gzip.open(basename+'.map.gz')
     
-    for line in f :
-        if line[:len(cultivar)] == cultivar :
-            return line.strip()
+    try :       pedfile = open(basename+'.ped')
+    except :    pedfile = gzip.open(basename+'.ped.gz')
 
+    return mapfile, pedfile
 
-def map_parser(fname) :
+def map_parser(mapfile) :
     print '# Parsing MAP file :', fname
-    mapraw = loadtxt (fname, dtype=int, usecols=(0,3))
+    mapraw = loadtxt (mapfile, dtype=int, usecols=(0,3))
 
     return sorted([(line[0], line[1]) for line in mapraw])
      
@@ -149,8 +151,8 @@ def map_parser(fname) :
 
 # parses a MAP file into a dictionary 
 
-def map_dict(fname) : 
-    mapraw = loadtxt (fname, dtype=int, usecols=(0,3))
+def map_dict(mapfile) : 
+    mapraw = loadtxt (mapfile, dtype=int, usecols=(0,3))
 
     mapdict = { i:[] for i in range(1,13)}
     for i in range(len(mapraw)) :
@@ -277,6 +279,15 @@ def ped_stats(pedfile, reference=None, nrows=None) :
 
     return stats
 
+
+# get the line for a given cultivar
+
+def ped_find_cultivar( pedfname , cultivar ) :
+    f = gzip.open(pedfname,'r')
+    
+    for line in f :
+        if line[:len(cultivar)] == cultivar :
+            return line.strip()
 
 
 
