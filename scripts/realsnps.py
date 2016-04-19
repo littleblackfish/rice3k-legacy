@@ -6,9 +6,9 @@ import gzip
 print '# fasta file :', argv[1]
 print '# plink file : ', argv[2]
 
-reference = fasta_reference(argv[1], argv[2]+'.map.gz')
+reference = fasta_reference(argv[1], argv[2]+'.map')
 
-stats = ped_stats(gzip.open(argv[2]+'.ped.gz'), reference, nrows = 10)
+stats = ped_stats(open(argv[2]+'.ped'), reference, nrows)
 
 print 'name\tchanging\thomo\thetero\tmissing'
 for name in stats :
