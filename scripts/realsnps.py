@@ -8,7 +8,7 @@ print '# plink file : ', argv[2]
 
 reference = fasta_reference(argv[1], argv[2]+'.map')
 
-stats = ped_stats(open(argv[2]+'.ped'), reference, nrows)
+stats = ped_stats(open(argv[2]+'.ped'), reference)
 
 print 'name\tchanging\thomo\thetero\tmissing'
 for name in stats :
