@@ -5,6 +5,8 @@ from Bio.Alphabet import generic_dna, generic_protein
 from Bio.SeqRecord import SeqRecord 
 from Bio.Seq import Seq
 import re
+import vcf
+import itertools
 
 
 
@@ -119,6 +121,14 @@ def fasta_parser(fname) :
     return genomedict
 
 
+def fasta_reference(fastafname, mapfname) :
+    genome  = fasta_parser(fastafname)
+    maplist = map_parser(mapfname)
+    
+    reference = [genome[m[0]][m[1]-1] for m in maplist]
+
+    return ''.join(reference)
+
 # get the line for a given cultivar
 
 def ped_find_cultivar( pedfname , cultivar ) :
@@ -162,87 +172,110 @@ def map_find_loci(mapdict, sid, interval) :
     lociSNPpos = [mapdict[sid][0][i] for i in indices ]
     return lociSNPind, lociSNPpos
 
-# reads a ped file, takes only homozygous snps 
-# returns them in a '1S' numpy array
-# along with a name list
-# as memory efficient as it gets 
 
-def ped_parser_homo(pedfname, nrows=3023) :
-    f = gzip.open(pedfname, 'r') 
-    print '# Parsing PED file :', pedfname
+# reads ped file line by line and returns a string of SNPs 
+# returns only homozygous SNPs (including '0')
+# returns ' ' for heretozygous 
+# optionally returns only SNPs from the given index
+
+from itertools import izip,islice
+
+def ped_iterator(pedfile, index=None) :
+
+    seq = None
+
+    for line in pedfile :
+        # read line
+        line = line.strip().split()
+        # first column is sample name
+        name = line[0]
+        
+        seq = zeros((len(line)-6) /2, dtype='|S1')
+
+        # split line into two strands
+        # (be careful, data may not be phased)
+        strand1 = islice(line, 6, None, 2)
+        strand2 = islice(line, 7, None, 2)
+       
+        for i, (alelle1, alelle2) in enumerate(izip(strand1,strand2)) :
+            # homozgyous
+            if alelle1 == alelle2 : seq[i] = alelle1 
+            # heterozygous
+            else : seq[i] = ' '
+
+
+        # optionally filter for index
+        if index is not None :
+            seq = seq[index]
+        
+        yield name, seq
+
+# parses a ped file 
+# puts it in a '|S1' numpy array
+# returns a name list and the array
+# this is as memory efficient as it gets 
+# still requires the whole thing fits into memory though
+
+def ped_parser_homo(pedfile, nrows=3023, index=None) :
+    print '# Parsing PED file :', pedfile.name
     
-    ncols = len(f.readline().strip().split(' '))
-    nsnps = (ncols-6) / 2
-    f.rewind()
-    
-    snps = zeros([nrows,nsnps], dtype='S1')
+    snps=None
     names = []
-
     row=0
-    for line in f :
-        line = line.strip().split(' ')
-        names.append(line[0])
-        for i in range(6, len(line), 2) :
-            if line[i] == line[i+1] :
-                snps[row,(i-6)/2] = line[i] 
+
+    for name, seq in ped_iterator(pedfile, index=index) :
+        
+        # initialize matrix after reading first line
+        # this way you know nsnps
+        if  snps is None:
+            nsnps = (len(seq))
+            snps = zeros([nrows,nsnps], dtype='S1')
+        
+        names.append(name)
+        
+        snps[row] = seq 
         row +=1
-        if row==nrows :
-            break
+        if row==nrows : break
     
     print '# {} SNPs in {} cultivars.'.format(nsnps, nrows )
     return names,snps
 
-# reads ped file line by line and returns a string of SNPs 
-# returns only SNPs from the given index
-# returns only homozygous SNPs
-# returns ' ' for heretozygous SNP at the given indice
-
-def ped_iterator(pedfname, index) :
-    with gzip.open(pedfname, 'r') as f:
-        for line in f :
-            snpseq=''
-            tmp = line.strip().split()
-            name = tmp[0]
-            for i in index :
-                alelle1 = tmp[6+2*i]
-                alelle2 = tmp[7+2*i]
-                if alelle1 == alelle2 :
-                    snpseq += alelle1 
-                else :
-                    snpseq += ' '
-            yield name, snpseq
 
 
 
-def ped_stats(pedfname, nrows=3023) :
-    f = gzip.open(pedfname, 'r') 
-    print '# Parsing PED file :', pedfname
+def ped_stats(pedfile, reference=None, nrows=None) :
+    print '# Parsing PED file :', pedfile.name
     
     # figure out number of snps
-    ncols = len(f.readline().strip().split(' '))
-    nsnps = (ncols-6) / 2
-    f.rewind()
     
     stats = {}
+    row=0
 
-    for row,line in enumerate(f) :
-        line = line.strip().split(' ')
-        name = line[0] #cultivar name
-        homoCount   = 0
-        heteroCount = 0
-        missingCount = 0 
-        for i in range(6, len(line), 2) :
-            assert line[i] in ('A','T','C','G','0'), 'wtf is this {}'.format(line[i])
-            if line[i] == '0' :
-                missingCount+=1
-            elif line[i] == line[i+1] :
-                homoCount +=1
-            else :
-                heteroCount +=1 
-        stats[name]=(homoCount,heteroCount,missingCount)
+    for name, seq in ped_iterator(pedfile) :
+        
+        homo   = 0
+        hetero = 0
+        missing = 0 
+        changing = 0
 
-        if row==nrows :
+        for i in range(len(seq)) :
+            c = seq[i]
+            if   c == '0' :  missing += 1
+            elif c == ' ' :  hetero  += 1
+            elif c in ('A','T','C','G') :
+                homo += 1 
+                if reference is not None :
+                    if reference[i] != c :
+                        changing +=1
+
+
+        stats[name]={'homo':homo,'hetero':hetero,'missing':missing, 'changing':changing}
+
+        row+=1
+        if nrows is not None and row==nrows :
             break
+
+    stats['nsnps'] = len(seq)
 
     return stats
 
@@ -279,4 +312,31 @@ def strip_vcf (vcffile) :
 
     return pos, seq
             
+
+def vcf_homo_snp (vcffile, minQual=30) : 
+    reader = vcf.Reader(vcffile) 
+
+    nsamples = len(reader.samples)
+
+    assert nsamples == 1
+
+    sample = reader.samples[0]
+
+    positions = []
+    sequence = ''
+    for record in reader : 
+        if not record.is_monomorphic and record.is_snp and record.QUAL>minQual :
+            g1,g2 = record.genotype(sample)['GT'].split('/')
+
+            if g1==g2 :
+                i=int(g1)
+                if g1!='1' :print g1
+
+                chrno= int(re.search("\d+",record.CHROM).group())
+                positions.append((chrno, record.POS))
+
+                sequence += record.REF[i-1]
+
+
+    return positions, sequence
 

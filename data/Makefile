@@ -1,7 +1,10 @@
 all : nipponbare
 
-nipponbare : MSU7/all.chrs.con MSU7/all.chrs.gff3 
+nipponbare : MSU7/README MSU7/all.chrs.con MSU7/all.chrs.gff3 
 
+MSU7/README :
+	mkdir -p $(@D)
+	cd $(@D); wget -N ftp://ftp.plantbiology.msu.edu/pub/data/Eukaryotic_Projects/o_sativa/annotation_dbs/pseudomolecules/version_7.0/README
 MSU7/all.chrs.con : 
 	mkdir -p $(@D)
 	cd $(@D); wget -N ftp://ftp.plantbiology.msu.edu/pub/data/Eukaryotic_Projects/o_sativa/annotation_dbs/pseudomolecules/version_7.0/all.dir/all.chrs.con
