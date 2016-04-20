@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 from parsers import fasta_reference,plink_open,ped_iterator
 import gzip
 
